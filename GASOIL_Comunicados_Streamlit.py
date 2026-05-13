@@ -121,6 +121,10 @@ st.title("🛢️ GAS OIL | Generador de informe Asistencia Comercial")
 
 uploaded = st.file_uploader("📄 Cargar CSV de LIMS", type=["csv"], accept_multiple_files=False)
 
+
+if uploaded is None:
+    st.stop()
+
 # Nombre base del archivo CSV (sin extensión)
 nombre_archivo_LIMS = os.path.splitext(uploaded.name)[0]
 numero_comunicado = construir_numero_comunicado(nombre_archivo_LIMS)
