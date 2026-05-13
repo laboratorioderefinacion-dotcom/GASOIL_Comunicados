@@ -7,11 +7,12 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 from io import BytesIO
 from datetime import datetime
 from mailmerge import MailMerge
 
-st.set_page_config(page_title="GAS OIL - Generador de Informes", layout="centered")
+st.set_page_config(page_title="GAS OIL Comunicados - Generador de Informes", layout="centered")
 
 # -----------------------------
 # Utilidades (misma lógica que tu script)
@@ -20,10 +21,10 @@ def extraer_valor(df, nombre_celda, n_muestra):
     col = 3 + n_muestra
     fila = df[df[1] == nombre_celda]
     if fila.empty:
-        return "#########"  # El análisis no existe
+        return "#########"
     valor = fila.iloc[0, col]
     if pd.isna(valor) or str(valor).strip() == "":
-        return "-----"  # El análisis existe pero no tiene dato
+        return "-----"
     return str(valor)
 
 def extraer_valor_float(df, nombre_celda, n_muestra):
@@ -47,10 +48,10 @@ def formatear(valor, decimales):
 def extraer_datos(df, nombre_celda, n_muestra):
     fila = df[df[0] == nombre_celda]
     if fila.empty:
-        return "#########"  # El análisis no existe
+        return "#########"
     valor = fila.iloc[0, 3 + n_muestra]
     if pd.isna(valor) or str(valor).strip() == "":
-        return "-----"  # El análisis existe pero no tiene dato
+        return "-----"
     return str(valor)
 
 def formatear_fecha_datos(fecha_str, incluir_hora=True):
@@ -66,44 +67,65 @@ def extraer_valor_norma(df, nombre):
     resultado = df.loc[df[1] == nombre, 2]
     return resultado.values[0] if not resultado.empty else ""
 
+def construir_numero_comunicado(nombre_base):
+    """
+    Toma nombre del archivo (sin .csv) y devuelve:
+    - "A.C. xxxx" si empieza con AC
+    - "C.M. xxxx" si empieza con CM
+    - sino devuelve el nombre tal cual
+    Soporta separadores: '-', '_', ' ', '.', etc.
+    """
+    if not nombre_base:
+        return "#########"
+
+    nb = nombre_base.strip()
+
+    # Detecta prefijo AC/CM al inicio
+    m = re.match(r"^(AC|CM)\b[\s\-_\.]*?(.*)$", nb, flags=re.IGNORECASE)
+    if not m:
+        return nb
+
+    pref = m.group(1).upper()
+    resto = m.group(2).strip()
+
+    # Si resto quedó vacío, igual devolvemos algo
+    if pref == "AC":
+        return "A.C. " + (resto if resto else "#########")
+    if pref == "CM":
+        return "C.M. " + (resto if resto else "#########")
+    return nb
+
 
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🛢️ GAS OIL | Generador de informe Word (Streamlit)")
-st.markdown(
-    """
-Subí el **CSV de LIMS**, completá **cliente**, **prioridad** y **cantidad de muestras**.  
-La app genera el **Word** usando la plantilla `GASOIL {n}M.docx`.
-"""
-)
+st.title("🛢️ GAS OIL | Generador de informe Asistencia Comercial")
 
 uploaded = st.file_uploader("📄 Cargar CSV de LIMS", type=["csv"])
 
-col1, col2 = st.columns(2)
-with col1:
-    n_muestras = st.number_input("¿Cuántas muestras desea procesar? (1 a 6)", min_value=1, max_value=6, value=1, step=1)
-with col2:
-    prioridad = st.text_input("Prioridad (días hábiles)", value="")
+# Nombre LIMS automático desde el CSV
+nombre_archivo_LIMS = os.path.splitext(uploaded.name)[0]
+numero_comunicado = construir_numero_comunicado(nombre_archivo_LIMS)
 
+st.caption(f"📌 Archivo cargado: **{uploaded.name}**  |  Comunicado: **{numero_comunicado}**")
+
+st.divider()
+
+# ORDEN: Cliente -> Muestras -> Prioridad
 cliente = st.text_input("Nombre del cliente", value="")
 
-# Podés dejarlo o hacerlo automático con uploaded.name
-nombre_archivo_LIMS = st.text_input(
-    "Nombre del archivo LIMS (para N° comunicado, ej: AC-1234 o CM-5678)",
-    value=""
+n_muestras = st.number_input(
+    "¿Cuántas muestras desea procesar? (1 a 6)",
+    min_value=1, max_value=6, value=1, step=1
 )
+
+prioridad = st.text_input("Prioridad (días hábiles)", value="")
 
 st.divider()
 
 # -----------------------------
-# Procesamiento
+# Lectura CSV
 # -----------------------------
-if uploaded is None:
-    st.info("📥 Subí un CSV para comenzar.")
-    st.stop()
-
-# Leer CSV
 try:
     df_a = pd.read_csv(uploaded, encoding="latin1", sep=";", header=None)
     st.success("✅ CSV leído correctamente.")
@@ -111,20 +133,9 @@ except Exception as e:
     st.error(f"❌ No pude leer el CSV: {e}")
     st.stop()
 
-# Número comunicado
-numero_comunicado = ""
-if len(nombre_archivo_LIMS) >= 2:
-    pref = nombre_archivo_LIMS[:2].lower()
-    if pref == "ac":
-        numero_comunicado = "A.C. " + str(nombre_archivo_LIMS[3:])  # asume 'AC-1234'
-    elif pref == "cm":
-        numero_comunicado = "C.M. " + str(nombre_archivo_LIMS[3:])
-    else:
-        numero_comunicado = nombre_archivo_LIMS
-else:
-    numero_comunicado = "#########"
-
-# Plantillas en RAÍZ (mismo nivel que app.py)
+# -----------------------------
+# Plantilla (en la raíz del repo)
+# -----------------------------
 ruta_plantillas = os.getcwd()
 plantilla = os.path.join(ruta_plantillas, f"GASOIL {int(n_muestras)}M.docx")
 
@@ -135,7 +146,9 @@ if not os.path.isfile(plantilla):
     )
     st.stop()
 
+# -----------------------------
 # Extracción por muestra
+# -----------------------------
 datos_muestras = {}
 obs = ""
 notas_agua = set()
@@ -164,9 +177,8 @@ for i in range(1, int(n_muestras) + 1):
     datos_muestras[f"color_m{i}"] = extraer_valor(df_a, "Color ASTM 1500", i)
     datos_muestras[f"PM_m{i}"] = formatear(extraer_valor_float(df_a, "Punto de Inflamación Pensky Martens", i), 1)
 
-    # Agua Karl Fisher + reglas
+    # Agua + reglas
     agua_val = extraer_valor(df_a, "Agua por Karl Fisher", i)
-
     if str(fase_val).strip() != "No se observa":
         datos_muestras[f"agua_m{i}"] = "(**)"
         notas_agua.add(
@@ -207,7 +219,7 @@ elif producto == "GAS_OIL_10S":
     esp_azufre = "10"
     nombre_archivo_nuevo = f"{numero_comunicado} Gas Oil 10S - {cliente}".strip()
 
-# Notas de agua ordenadas
+# Notas agua ordenadas
 notas_ordenadas = []
 for prefijo in ["(*)", "(**)"]:
     for nota in sorted(notas_agua):
@@ -230,7 +242,6 @@ datos_fusion = {
     "nota_agua": "\n".join(notas_ordenadas) if notas_ordenadas else ""
 }
 
-# Norma de agua según si hubo valores válidos o no
 if agua_reportada:
     norma_agua = extraer_valor_norma(df_a, "Agua por Karl Fisher")
     datos_fusion["n_agua"] = str(norma_agua).replace("_", " ") if norma_agua else "#########"
@@ -239,9 +250,9 @@ else:
 
 datos_fusion.update(datos_muestras)
 
-st.divider()
-
-# Generar Word
+# -----------------------------
+# Generación Word
+# -----------------------------
 if st.button("📝 Generar informe Word", type="primary"):
     try:
         doc = MailMerge(plantilla)
@@ -256,7 +267,7 @@ if st.button("📝 Generar informe Word", type="primary"):
             "⬇️ Descargar informe .docx",
             data=buffer,
             file_name=f"{nombre_archivo_nuevo}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
 
         if obs.strip():
