@@ -275,10 +275,6 @@ datos_fusion.update(datos_muestras)
 # -----------------------------
 # Generación del Word
 # -----------------------------
-habilitar = bool(cliente.strip()) and bool(str(prioridad).strip())
-
-if not habilitar:
-    st.warning("⚠️ Completá **Cliente** y **Prioridad** para habilitar la generación del informe.")
 
 if st.button("📝 Generar informe Word", type="primary", disabled=not habilitar):
     try:
