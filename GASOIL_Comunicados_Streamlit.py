@@ -138,7 +138,7 @@ col1, col2 = st.columns(2)
 with col1:
     n_muestras = st.number_input("¿Cuántas muestras desea procesar? (1 a 6)", min_value=1, max_value=6, value=1, step=1)
 with col2:
-    prioridad = st.text_input("Prioridad (días hábiles)", value="")
+    prioridad = st.number_input("Prioridad (días hábiles)", min_value=1, max_value=10, value=1, step=1)
 
 st.divider()
 
@@ -276,7 +276,7 @@ datos_fusion.update(datos_muestras)
 # Generación del Word
 # -----------------------------
 
-if st.button("📝 Generar informe Word", type="primary", disabled=not habilitar):
+if st.button("📝 Generar informe Word", type="primary"):
     try:
         doc = MailMerge(plantilla)
         doc.merge(**{k: str(v) for k, v in datos_fusion.items()})
