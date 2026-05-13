@@ -121,10 +121,6 @@ st.title("🛢️ GAS OIL | Generador de informe Asistencia Comercial")
 
 uploaded = st.file_uploader("📄 Cargar CSV de LIMS", type=["csv"], accept_multiple_files=False)
 
-if uploaded is None:
-    st.info("📥 Subí un CSV para comenzar.")
-    st.stop()
-
 # Nombre base del archivo CSV (sin extensión)
 nombre_archivo_LIMS = os.path.splitext(uploaded.name)[0]
 numero_comunicado = construir_numero_comunicado(nombre_archivo_LIMS)
@@ -288,22 +284,13 @@ if st.button("📝 Generar informe Word", type="primary", disabled=not habilitar
         buffer = BytesIO()
         doc.write(buffer)
         buffer.seek(0)
-
-        st.success("✅ Informe generado.")
+        
         st.download_button(
             "⬇️ Descargar informe .docx",
             data=buffer,
             file_name=f"{nombre_archivo_nuevo}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-
-        if obs.strip():
-            with st.expander("📌 Observaciones detectadas (Comentarios por muestra)"):
-                st.text(obs)
-
-        if datos_fusion.get("nota_agua", "").strip():
-            with st.expander("💧 Notas de Agua"):
-                st.text(datos_fusion["nota_agua"])
 
     except Exception as e:
         st.error(f"❌ Error generando el Word: {e}")
