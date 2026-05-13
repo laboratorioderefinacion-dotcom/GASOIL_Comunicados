@@ -117,8 +117,7 @@ def sanitizar_nombre_archivo(nombre: str) -> str:
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🛢️ GAS OIL | Generador de comunicado (.docx)")
-st.caption("Subí el CSV de LIMS. El N° de comunicado se toma del nombre del archivo (ej: cm 003-26.csv → C.M. 003-26).")
+st.title("🛢️ GAS OIL | Generador de informe Asistencia Comercial")
 
 uploaded = st.file_uploader("📄 Cargar CSV de LIMS", type=["csv"], accept_multiple_files=False)
 
@@ -130,14 +129,16 @@ if uploaded is None:
 nombre_archivo_LIMS = os.path.splitext(uploaded.name)[0]
 numero_comunicado = construir_numero_comunicado(nombre_archivo_LIMS)
 
-st.caption(f"📌 Archivo cargado: **{uploaded.name}**   |   Comunicado: **{numero_comunicado}**")
-
 st.divider()
 
 # ORDEN QUE PEDISTE:
 cliente = st.text_input("Nombre del cliente", value="")
-n_muestras = st.number_input("¿Cuántas muestras desea procesar? (1 a 6)", min_value=1, max_value=6, value=1, step=1)
-prioridad = st.text_input("Prioridad (días hábiles)", value="")
+
+col1, col2 = st.columns(2)
+with col1:
+    n_muestras = st.number_input("¿Cuántas muestras desea procesar? (1 a 6)", min_value=1, max_value=6, value=1, step=1)
+with col2:
+    prioridad = st.text_input("Prioridad (días hábiles)", value="")
 
 st.divider()
 
@@ -150,8 +151,6 @@ except Exception as e:
     st.error(f"❌ No pude leer el CSV: {e}")
     st.stop()
 
-st.success("✅ CSV leído correctamente.")
-
 # Plantillas en la raíz del repo (mismo nivel que este .py)
 plantilla = os.path.join(os.getcwd(), f"GASOIL {int(n_muestras)}M.docx")
 
@@ -161,8 +160,6 @@ if not os.path.isfile(plantilla):
         "📌 Verificá que esté en el repositorio, en el mismo nivel que este archivo `.py`."
     )
     st.stop()
-
-st.caption(f"🧩 Plantilla seleccionada: **{os.path.basename(plantilla)}**")
 
 # -----------------------------
 # Extracción por muestra
